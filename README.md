@@ -60,7 +60,7 @@ find /scicore/home/marque0000/GROUP/wu0006/3_RG -name "*.bam" | awk -F'_' '{prin
 sbatch 04_MD_array.slurm
 
 # Index new bam files
-sbatch 05_picard_bai.slurm
+sbatch 05_picard_bai_array.slurm
 ```
 ### Quality check on bam files using Qualimap and SAMtools
 `SAMtools quickcheck` was used to check validity of the files. `Qualimap` was used to check overall bam file quality, with the coverage and mapping quality being extracted
