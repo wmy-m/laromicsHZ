@@ -76,7 +76,7 @@ samtools quickcheck -v ./*.bam
 If the bam files passed `quickcheck`, it will be processed by `Qualimap`.
 ```
 # Run Qualimap
-sbatch qualimap_array.slurm
+sbatch 06_qualimap_array.slurm
 
 # check if all runs finished properly
 grep -r "Finished" qualimap_bamqc.o* | wc -l
