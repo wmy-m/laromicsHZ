@@ -54,7 +54,7 @@ sbatch 03_RG_array.slurm
 Samples were merged and duplicates were also marked. These finalised bam files were stored in ./01_bam_refMic
 ```
 # Extract unique sample names from BAM file names and save to a text file
-find /scicore/home/marque0000/GROUP/wu0006/3_RG -name "*.bam" | awk -F'_' '{print $5}' | sort | uniq > 20240607_sample_names.txt
+find /scicore/home/marque0000/GROUP/wu0006/3_RG -name "*.bam" | awk -F'_' '{print $5}' | sort | uniq > sample_names.txt
 
 # Run Picard MarkDuplicates
 sbatch 04_MD_array.slurm
