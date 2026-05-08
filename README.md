@@ -4,7 +4,8 @@ This repository contains details on the data processing and analysis steps used 
 <i> Larus glaucscens </i> / <i> Larus occidentalis </i> hybrid zone through looking at the genomic divergence of involved species and the genetic architecture of
 phenotypic species differences. Calculations and bioinformatic analyses were performed at sciCORE (http://scicore.unibas.ch/) scientific computing center at University of Basel. 
 
-## Initial data processing and variant calling
+## Initial data processing
+All scripts for this section are filed under __Bioinfo__ folder
 ### Adaptor trimming and filtering 
 `Cutadapt` was used to trim adaptors and filter read quality
 
