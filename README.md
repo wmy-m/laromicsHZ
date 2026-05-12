@@ -117,6 +117,89 @@ echo -e "\nAverage Coverage Data:\t$average" >> $output_file
 ```
 
 ## Variant calling
+All scripts for this section are filed under __VariantCall__ folder
+Variants are called using `bcftools mpileup`. There are five datasets for different analyses: 1 – Hybrid zone;  2. – Demography; 3 – Allopatric; 4 – Cline; 5 – Trait mapping. SNPs were first called for dataset (1) and filtered. The other datasets were subset from this original SNP call. Additional filters were applied after subsetting. 
+
+**Determine genetic sex**  
+Coverage depth of the first 15 autosomes were compared with Chr Z to determine genetic sex. Females should be halved of the autosome depth because of the ZW system. 
+
+```
+for i in ./qualimap; do
+for j in $(ls $i | grep -v summary); do
+echo ${j%_results} $(grep "mean coverageData = " $i"/"$j"/genome_results.txt" | sed 's/.*\= \(.*\)X/\1/g') $(grep "chrZ" $i"/"$j"/genome_results.txt" | cut -f 5) | awk 'BEGIN{OFS="\t"}{print $1,$2,$3,$3/$2}'
+done; done > sexing_ZtomeanDPratio.txt
+
+or i in ./qualimap; do 
+  for j in $(ls $i | grep -v summary); do
+    echo ${j%_results} \
+      $(awk '$1=="chr01"{print $4}' $i/$j/genome_results.txt) \ 
+      $(awk '$1=="chr02"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr03"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr04"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr05"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr06"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr07"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr08"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr09"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr10"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr11"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr12"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr13"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr14"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chr15"{print $4}' $i/$j/genome_results.txt) \
+      $(awk '$1=="chrZ"{print $4}' $i/$j/genome_results.txt) | \
+awk 'BEGIN{OFS="\t"}{for(i=2;i<=16;i++){a+=$i};a=a/15;print $1,a,$17,$17/a}'
+done; done > sexing_Ztomean15chrratio.txt
+```
+**Creating paritions to parallelise variant calling**  
+Create a bed file for windows of 2Mbp using the index. This is to speed up variant calling by running multiple windows simultaneously. 
+```
+module load BEDTools/2.31.0-GCC-12.3.0
+bedtools makewindows -g GCF_964199755.1_bLarMic1.1_genomic_chr.fna.fai -w 2000000 > bLarMic1.2Mbpwin.bed
+```
+
+**Running bcftools mpileup**  
+1. Call SNPs for each of the paritions
+```
+sbatch 01_mpileup.slurm
+```
+2. Concatenate the paritions to chromosome levels
+```
+sbatch 02_concatChr.slurm
+```
+
+**Variant filtering**
+`BCFtools` were used for filtering. There are two rounds of filtering. The first filtering contain quality filters, the second filtering was tailored to the anaylses. 
+
+1. Determine depth filters. Information from '%INFO/DP' of the vcf files were extarcted from each chromosome class and depth limits were calculated in R. Minimium and maximum depth were defined as mean ± (1.5(interquartile range).
+```
+sbatch 03_bcfDepth.slurm
+```
+2. Initial filtering for quality
+Indels, SNPs closed to indels, SNPs where QUAL <20, multiallelic sites, invariant sites and sites with >50% missing data were removed. Genotypes with <4 reads or GQ <20 were set to missing. Maximum and minimum depth filters were also applied.
+```
+sbatch 04_filtSNP.slurm
+```
+4. Concatenate all autosomes to make downstream analyses easier
+```
+sbatch 05_concatAuto.slurm
+```
+5. Removing the male individuals from ChrW so the males genotype will not be treated as missing data in ChrW.
+```
+sbatch 06_RemoveM.slurm
+```
+6. Subsetting to specific dataset
+The samples in each dataset are given in supplementary table S4.
+```
+sbatch 07_Subset.slurm
+```
+8. Second filter specific to the analyses
+Multiallelic sites, non-polymorphic sites, sites with >50% missing data and MAF < 0.05 were removed for each dataset. For dataset (1), this filter was only ran on autosomes (Set A), while this filter was ran for every chromosome classes in other dataset (Set B)
+```
+sbatch 08_filtSNP_SetA.slurm
+sbatch 08_filtSNP_SetB.slurm
+```
+
 
 
 
