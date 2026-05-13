@@ -13,7 +13,7 @@ module load BCFtools/1.19-GCC-13.2.0
 
 cd ./5_bcftools/
 # Define path to latest bcftools version
-bcftoolspath=./99_scripts/bcftools/
+bcftoolspath=../99_scripts/bcftools/
 # Extract DP values from autosomes
 ${bcftoolspath}bcftools query -f '%INFO/DP' 20260106_Chapter1.chr{01..33}.vcf.gz 20260106_Chapter1.NW.vcf.gz > tmp.dp.autosomes
 # Extract DP values from Z chromosome
