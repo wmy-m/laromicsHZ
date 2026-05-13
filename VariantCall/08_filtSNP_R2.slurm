@@ -14,7 +14,7 @@ export BCFTOOLS_PLUGINS=../99_scripts/bcftools/plugins
 
 cd ./5_bcftools/dataset
 
-vcf=$(sed -n "${SLURM_ARRAY_TASK_ID}p" vcflist.2.txt)
+vcf=$(sed -n "${SLURM_ARRAY_TASK_ID}p" vcflist.txt)
 base=$(basename "$vcf" .vcf.gz)
 outfile=${base}.bSNPs.2.vcf.gz
 
