@@ -16,7 +16,7 @@ bcftoolspath=../99_scripts/bcftools/
 cd ./5_bcftools/datasets
 
 # Path to subset files
-subset_files=(EU_Cline.txt NA_Cline.txt EU_Pheno.txt NA_Full.txt EU_full.txt NA_Pheno.txt EU_FST.txt NA_FST.txt EU_Pheno.New.txt NA_Pheno.New.txt)
+subset_files=(EU_Cline.txt NA_Cline.txt EU_Pheno.txt NA_Pheno.txt NA_Full.txt EU_full.txt EU_allo.txt NA_allo.txt)
 subset_file=${subset_files[$SLURM_ARRAY_TASK_ID-1]}  
 subset_name=$(basename $subset_file .txt)
 
