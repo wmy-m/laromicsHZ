@@ -17,7 +17,7 @@ cd ./5_bcftools
 ref=./GCF_964199755.1_bLarMic1.1_genomic_chr.fna
 bamlist=./bam.list
 outdir=./5_bcftools
-bcftoolspath=./99_scripts/bcftools/
+bcftoolspath=../99_scripts/bcftools/
 # Get the parition to call, convert 0-based to 1-based
 part=$(sed ''$SLURM_ARRAY_TASK_ID'q;d' bLarMic1.2Mbpwin.bed | awk '{print $1":"$2+1"-"$3}')
 # Get list of bam files to call
