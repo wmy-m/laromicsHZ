@@ -13,7 +13,7 @@ cd ./5_bcftools
 # Load module for dependencies
 module load BCFtools/1.19-GCC-13.2.0
 # Define path to latest bcftools version
-bcftoolspath=./99_scripts/bcftools/
+bcftoolspath=../99_scripts/bcftools/
 
 # Get file names / partition numbers for respetive chromosome or scaffolds
 autosomes=$(printf "chr%02d " {1..33})
