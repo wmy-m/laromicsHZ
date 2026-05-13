@@ -15,7 +15,7 @@ cd ./5_bcftools
 
 # Define reference genome and bam file list, and output directory
 ref=./GCF_964199755.1_bLarMic1.1_genomic_chr.fna
-bamlist=./bamlist.full.txt
+bamlist=./dataset1.list
 outdir=./5_bcftools
 bcftoolspath=./99_scripts/bcftools/
 # Get the parition to call, convert 0-based to 1-based
