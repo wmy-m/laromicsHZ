@@ -4,7 +4,13 @@ This repository contains details on the data processing and analysis steps used 
 <i> Larus glaucscens </i> / <i> Larus occidentalis </i> hybrid zone through looking at the genomic divergence of involved species and the genetic architecture of
 phenotypic species differences. Calculations and bioinformatic analyses were performed at sciCORE (http://scicore.unibas.ch/) scientific computing center at University of Basel. 
 
-## Initial data processing
+## Phenotypic data analyses
+Phenotypic data was retrieved from past studies (NA: Bell 1996 The Condor; EU: Gay et al. 2007 Molecular Ecology, Gat et al. 2009 Heredity, Neubauer et al. 2009 The Auk) and merged with our recent fieldwork data. The R script is filed under __Pheno__ folder.
+
+Size traits were first standarisded and PCA was conducted on the phenotype dataset using `prcomp` in R. Linear discriminant analysis was carried out, with allopatric population used as test population. This was ran on a local computer. 
+
+
+## Initial genomic data processing
 All scripts for this section are filed under __Bioinfo__ folder
 ### Adaptor trimming and filtering 
 `Cutadapt` was used to trim adaptors and filter read quality
@@ -19,8 +25,8 @@ find . -name "*_R1_001.fastq.gz" > R1_files_list.txt
 sbatch 01_cutadapt_array.slurm
 ```
 ### Read alignment using BWA and SAMtools
-`BWA-mem2` was used to aligned the reads to the _Larus michahellis_ reference genome [GCF_964199755.1](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_964199755.1/).
-`SAMtools` was used for filtering and sorting the bam files.
+`BWA-mem2` was used to aligned the reads to the _Larus michahellis_ reference genome [GCF_964199755.1](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_964199755.1/). `SAMtools` was used for filtering and sorting the bam files. 
+
 **Index reference genome**  
 The refseq assembly does not include the mitochondrion genome. The reads are also aligned to the mitochondrion scaffold in the GenBank assembly. 
 ```
@@ -42,7 +48,7 @@ sbatch 02_bwa_array.slurm
 Each sample was sequenced on multiple lanes. `Picard` was used to add read groups and then merge the bam files of the same sample together. 
 
 **Add read group with Picard AddOrRemoveReadGroups**  
-For RGPU, I have used flowcell.lane instead of instrument.flowcell for the ease of coding. The logic remains the same. 
+For RGPU, I have used flowcell.lane instead of instrument.flowcell for the ease of coding. The logic remains the same. All outputs are stored in ./3_RG.
 ```
 # Make a list of bam files
 find ./2_bwa -name "*.bam" > bam_files_list.txt
@@ -51,7 +57,7 @@ find ./2_bwa -name "*.bam" > bam_files_list.txt
 sbatch 03_RG_array.slurm
 ```
 **Merge samples with Picard MarkDuplicates**  
-Samples were merged and duplicates were also marked. These finalised bam files were stored in ./01_bam_refMic
+Samples were merged and duplicates were also marked. The script was ran in ./4_MD with the finalised bam and bai files moved to ./01_bam_refMic
 ```
 # Extract unique sample names from BAM file names and save to a text file
 find /scicore/home/marque0000/GROUP/wu0006/3_RG -name "*.bam" | awk -F'_' '{print $5}' | sort | uniq > sample_names.txt
@@ -63,7 +69,7 @@ sbatch 04_MD_array.slurm
 sbatch 05_picard_bai_array.slurm
 ```
 ### Quality check on bam files using Qualimap and SAMtools
-`SAMtools quickcheck` was used to check validity of the files. `Qualimap` was used to check overall bam file quality, with the coverage and mapping quality being extracted
+`SAMtools quickcheck` was used to check validity of the files. `Qualimap` was used to check overall bam file quality, with the coverage and mapping quality being extracted. All outputs are stored in ./4_MD.
 for a closer inspection. 
 
 1. SAMtools quickcheck 
@@ -118,7 +124,7 @@ echo -e "\nAverage Coverage Data:\t$average" >> $output_file
 
 ## Variant calling
 All scripts for this section are filed under __VariantCall__ folder
-Variants are called using `bcftools mpileup`. There are five datasets for different analyses: 1 – Hybrid zone;  2. – Demography; 3 – Allopatric; 4 – Cline; 5 – Trait mapping. SNPs were first called for dataset (1) and filtered. The other datasets were subset from this original SNP call. Additional filters were applied after subsetting. 
+Variants are called using `bcftools mpileup`. There are five datasets for different analyses: 1 – Hybrid zone;  2. – Demography; 3 – Allopatric; 4 – Cline; 5 – Trait mapping. SNPs were first called for all samples in this study and filtered. The five datasets were subset from this original SNP call. Additional filters were applied after subsetting. All outputs are stored in ./5_bcftools and subdirectory ./5_bcftools/datasets for the subsets.
 
 **Determine genetic sex**  
 Coverage depth of the first 15 autosomes were compared with Chr Z to determine genetic sex. Females should be halved of the autosome depth because of the ZW system. 
@@ -189,17 +195,18 @@ sbatch 05_concatAuto.slurm
 sbatch 06_RemoveM.slurm
 ```
 6. Subsetting to specific dataset
-The samples in each dataset are given in supplementary table S4.
+The samples in each dataset are given in supplementary table S4. The subsetting for Dataset (2) demography was done separately later (see below). 
 ```
 sbatch 07_Subset.slurm
 ```
 8. Second filter specific to the analyses
-Multiallelic sites, non-polymorphic sites, sites with >50% missing data and MAF < 0.05 were removed for each dataset. For dataset (1), this filter was only ran on autosomes (Set A), while this filter was ran for every chromosome classes in other dataset (Set B)
+Multiallelic sites, non-polymorphic sites, sites with >50% missing data and MAF < 0.05 were removed for each dataset. For ChrW, the missing data filter was relaxed to >75%.  
 ```
-sbatch 08_filtSNP_SetA.slurm
-sbatch 08_filtSNP_SetB.slurm
+sbatch 08_filtSNP_R2.slurm
 ```
 
+## Basic population genomics analyses
+We first explore population genomic structure using PCA with `PLINK`, `Admixture` and `TriangulaR`. 
 
 
 
