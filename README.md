@@ -9,6 +9,10 @@ Phenotypic data was retrieved from past studies (NA: Bell 1996 The Condor; EU: G
 
 Size traits were first standarisded and PCA was conducted on the phenotype dataset using `prcomp` in R. Linear discriminant analysis was carried out, with allopatric population used as test population. This was ran on a local computer. 
 
+```
+Pheno.NA.R
+Pheno.EU.R
+```
 
 ## Initial genomic data processing
 All scripts for this section are filed under __Bioinfo__ folder
