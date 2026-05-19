@@ -5,7 +5,7 @@ This repository contains details on the data processing and analysis steps used 
 phenotypic species differences. Calculations and bioinformatic analyses were performed at sciCORE (http://scicore.unibas.ch/) scientific computing center at University of Basel. 
 
 ## Phenotypic data analyses
-Phenotypic data was retrieved from past studies (NA: Bell 1996 The Condor; EU: Gay et al. 2007 Molecular Ecology, Gat et al. 2009 Heredity, Neubauer et al. 2009 The Auk) and merged with our recent fieldwork data. The R script is filed under __Pheno__ folder.
+Phenotypic data was retrieved from past studies (NA: Bell 1996 The Condor; EU: Gay et al. 2007 Molecular Ecology, Gat et al. 2009 Heredity, Neubauer et al. 2009 The Auk) and merged with our recent fieldwork data. The R scripts are filed under __Pheno__ folder.
 
 Size traits were first standarisded and PCA was conducted on the phenotype dataset using `prcomp` in R. Linear discriminant analysis was carried out, with allopatric population used as test population. This was ran on a local computer. 
 
@@ -210,9 +210,42 @@ sbatch 08_filtSNP_R2.slurm
 ```
 
 ## Basic population genomics analyses
-We first explore population genomic structure using PCA with `PLINK`, `Admixture` and `TriangulaR`. 
+Population genomic structure was explored using PCA with `PLINK`, `Admixture` and `TriangulaR`. All scripts in this section are filed under __Popgen__ folder. Only the autosomes were used for these analyses.
 
+`TriangulaR` was used to identify ancestry-informative markers (AFD=0.5 to 1) and using those markers to calculate hybrid indices, interclass heterozygosity and building triangle plots. The allopatric populations are used as the parental populations.  
 
+```
+sbatch 01_TriangulaR.R
+```
 
+`PLINK` was used to run PCA and prepare the input file for `Admixture`. The dataset is first splited into the two hybrid zones and before `PLINK`. 
+```
+sbatch 02_Subset.slurm
+```
+In `PLINK`, the missingness was calculated and pca was ran using `--missing` and `--pca` respectively. The vcf was further filtered by removing missing genotypes, a minor allele count is observed in at least 2 individuals and keeping only one SNP every 10,000 bp for `ADMIXTURE`.
+```
+sbatch 03_PLINK.slurm
+```
+`ADMIXTURE` was ran using the `PLINK` output. The chromosome names were first removed to keep them all as intergers so `ADMIXTURE` can read it. The best _K_ was then identified.
+```
+awk '{$1="0";print $0}' Chapter1.NA_Full.auto.new.bSNPs.2_adm.bim > Chapter1.NA_Full.auto.new.bSNPs.2_adm.bim.tmp
+mv Chapter1.NA_Full.auto.new.bSNPs.2_adm.tmp Chapter1.NA_Full.auto.new.bSNPs.2_adm.bim
 
+awk '{$1="0";print $0}' Chapter1.EU_Full.auto.new.bSNPs.2_adm.bim > Chapter1.EU_Full.auto.new.bSNPs.2_adm.bim.tmp
+mv Chapter1.EU_Full.auto.new.bSNPs.2_adm.tmp Chapter1.EU_Full.auto.new.bSNPs.2_adm.bim
+
+for K in 2 3 4 5 6 7; \
+do admixture --cv Chapter1.EU_Full.auto.new.bSNPs.2_adm.bed $K | tee logEU${K}.out; done
+grep -h CV logEU*.out
+
+for K in 2 3 4 5 6 7; \
+do admixture --cv Chapter1.NA_Full.auto.new.bSNPs.2_adm.bed $K | tee logNA${K}.out; done
+grep -h CV logNA*.out
+```
+
+## Demographic history
+
+## Genomic scans 
+To investigate genomic architecture, genomic scans were carried out using FST and genomic cline parameters. 
+FST was calculated separately for each chromosome class
 
