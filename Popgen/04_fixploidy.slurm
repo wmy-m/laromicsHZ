@@ -12,7 +12,7 @@ module load BCFtools/1.19-GCC-13.2.0
 bcftoolspath=./99_scripts/bcftools/
 export BCFTOOLS_PLUGINS=./99_scripts/bcftools/plugins
 
-cd /5_bcftools/dataset
+cd /5_bcftools/datasets
 
     vcf=$(sed -n "${SLURM_ARRAY_TASK_ID}p" fixploidy_list.txt)
 
