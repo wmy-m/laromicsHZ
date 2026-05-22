@@ -7,7 +7,7 @@
 #SBATCH --output=wcfst.o%j
 #SBATCH --error=wcfst.e%j
 
-cd ./5_bcftools/dataset/FST
+cd ./5_bcftools/datasets/FST
 
 python3 ./99_scripts/vcf2wcfst.py \
     -i ../Chapter1.EU_FST.auto.new.bSNPs.2.vcf.gz \
