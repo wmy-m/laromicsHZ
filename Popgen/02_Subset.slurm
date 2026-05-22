@@ -13,7 +13,7 @@
     # Define path to latest bcftools version
     bcftoolspath=./99_scripts/bcftools/
 
-    cd ./5.2_bcftools/datasets/PCA
+    cd ./5_bcftools/datasets/PCA
 
     # Path to subset files
     subset_files=(EU.txt NA.txt)
