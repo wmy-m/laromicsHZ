@@ -13,6 +13,11 @@ Size traits were first standarisded and PCA was conducted on the phenotype datas
 Pheno.NA.R
 Pheno.EU.R
 ```
+**Clinal analyses**  
+Phenotype-geographic clines were fitted using `HZAR` for shortlisted traits. The `HZAR` pipeline was turnt into a R function to run selected traits as an array in slurm. The phenotype dataset was subsetted to only containing inidivduals from the genomic clinal dataset.
+```
+sbatch HZAR_pheno.slurm
+```
 
 ## Initial genomic data processing
 All scripts for this section are filed under __Bioinfo__ folder
@@ -210,15 +215,15 @@ sbatch 08_filtSNP_R2.slurm
 ```
 
 ## Basic population genomics analyses
-Population genomic structure was explored using PCA with `PLINK`, `Admixture` and `TriangulaR`. All scripts in this section are filed under __Popgen__ folder. Only the autosomes were used for these analyses.
+Population genomic structure was explored using PCA with `PLINK`, `Admixture` and `TriangulaR`. All scripts in this section are filed under __Popgen__ folder. Only the autosomes from the hybrid zone dataset (1) were used for these analyses.
 
-`TriangulaR` was used to identify ancestry-informative markers (AFD=0.5 to 1) and using those markers to calculate hybrid indices, interclass heterozygosity and building triangle plots. The allopatric populations are used as the parental populations.  
+`TriangulaR` was used to identify ancestry-informative markers (AFD=0.5 to 1) and using those markers to calculate hybrid indices, interclass heterozygosity and building triangle plots. A population map was created with all the samples being tested, with the allopatric populations set to the parental populations.  
 
 ```
 sbatch 01_TriangulaR.R
 ```
 
-`PLINK` was used to run PCA and prepare the input file for `Admixture`. The dataset is first splited into the two hybrid zones and before `PLINK`. 
+`PLINK` was used to run PCA and prepare the input file for `Admixture`. The dataset is first splited into the two hybrid zones and before using `PLINK`. 
 ```
 sbatch 02_Subset.slurm
 ```
@@ -244,8 +249,295 @@ grep -h CV logNA*.out
 ```
 
 ## Demographic history
+`SMC++` was used to estimate effective population size of the four hybrid zone species. We further estimated split times for each hybrid zone. This analysis was done using the Demographic dataset (2), with 10 individuals per species. The scripts are filed under __Demo__ folder.
 
+We first readied the dataset by filtering for biallelic SNPs, max. 10% missing genotypes and autosomes only. We created a missingness mask to omit regions where more than 10% of individuals have missing data. 
+
+```
+# Filter VCF file for SNPs: biallelic SNPs, max. 10% missing genotypes, autosomes only
+sbatch 01_smcppfilt.slurm
+
+# Create missingness mask 
+# b) Mask for covered sites: 90% of individuals covered, minus mappability mask
+# (1b) Generate BED file for each individual with at least 5x coverage
+sbatch 02_smcppbamdepth.slurm
+
+# Overlap bed files to get a mask where <90% of individuals are covered, combine with missingness mask
+sbatch 03_smcppbedoverlap.slurm
+
+# Recode vcf file into vcf-iid
+# This will cause the chromosome names to go a bit haywire
+# Chr name in BED file needs to renamed
+
+plink --vcf Demo.filt.vcf.gz --keep-allele-order --allow-extra-chr \
+    --chr-set 95 no-xy no-mt --recode vcf-iid --out Demo.filt.recoded
+    bgzip -c Demo.filt.recoded.vcf > Demo.filt.recoded.vcf.gz
+    tabix Demo.filt.recoded.vcf.gz
+
+zcat Demo.miss.bed.gz | sed 's/^chr0*//' > Demo.miss.fixed.bed
+bgzip Demo.miss.fixed.bed
+tabix Demo.miss.fixed.bed.gz
+
+# Convert VCF files to smcpp input files and run smcpp
+sbatch 04_smcppvcftoinfile.slurm
+sbatch 05_smcppvcftoindist.slurm #This is ran four times for each species
+sbatch 06_smcppvcftoinfilepairs.slurm #for 2 species 
+
+```
+
+We then ran smc++ estimation on 10 distinugished individiual
+```
+sbatch 07_smcppestd10.slurm
+
+# Plotting the results
+for i in Arg Cac Gla Occ; do
+    smc++ plot -g 10 -x 1e4 1e7 runLar${i}d10/runLar${i}d10.plot.pdf runLar${i}d10/model.final.json
+    done
+```
+We followed up by running smc++ split time estimation using the paired files. 
+```
+sbatch 08_smcppsplit.slurm
+
+# plot split 
+    for i in LarArg.LarCac LarGla.LarOcc; do
+    smc++ plot -g 10 -x 1e4 1e7 run${i}002/run${i}002.plot.pdf run${i}002/model.final.json
+    done
+```
 ## Genomic scans 
 To investigate genomic architecture, genomic scans were carried out using FST and genomic cline parameters. 
-FST was calculated separately for each chromosome class
+FST was calculated separately for each chromosome class using a custom script for Weir and Cockerham’s FST. The Allopatric dataset was used for the FST analyses. The scripts for FST are filed under __Popgen__ folder. 
+
+First, the ploidy for chrW and chrZ was forced to diploid notation using `BCFtools`. 
+```
+ls *ChrW* *ChrZ* > fixploidy_list.txt
+sbatch 04_fixploidy.slurm
+```
+The custom script calculates locus-based FST with the numerator and denominator values separately. The locus-based FST was then binned into different window sizes for better visualisation. 
+```
+sbatch 05_wcfst.slurm
+
+#Calculating the average FST values from the locus-based FST results
+##global FST
+cat EU.auto.wcfst.txt EU.ChrW.forced.wcfst.txt EU.ChrZ.forced.wcfst.txt| \
+awk '{if($3!="-nan"){a+=$3;b+=$4}}END{print a/b}'
+cat NA.auto.wcfst.txt NA.ChrW.forced.wcfst.txt NA.ChrZ.forced.wcfst.txt| \
+awk '{if($3!="-nan"){a+=$3;b+=$4}}END{print a/b}'
+
+##autosome FST
+awk '{if($1 != "chrZ" && $1 !~ /^chrW/ && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < NA.auto.wcfst.txt
+awk '{if($1 != "chrZ" && $1 !~ /^chrW/ && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < EU.auto.wcfst.txt
+
+##Z FST
+awk '{if($1 == "chrZ" && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < NA.ChrZ.forced.wcfst.txt
+awk '{if($1 == "chrZ" && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < EU.ChrZ.forced.wcfst.txt
+
+## Chr W
+awk '{if($1 == "chrW" && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < NA.ChrW.forced.wcfst.txt
+awk '{if($1 == "chrW" && $3 != "-nan") {a+=$3; b+=$4}} END {print a/b}' < EU.ChrW.forced.wcfst.txt
+
+# Making windowed FST outputs
+sbatch 06_winfst.slurm
+```
+
+Genomic clines were fitted across the genome using `bgchm` to observe changes in the cline slope and center. We used the clinal dataset (4) for this analysis. The dataset was first filtered to only retain ancestry informative SNPs (AFD threshold = 0.5) before running `bgchm`. The script for this analysis was filed under __bgchm__. 
+
+VCFs that were filtered to AFD threshold = 0.5 was exported from TriangulaR script (vcf.diff), and their positions were retrieved. The clinal datasets were subsetted to these postions.
+```
+# extracting SNPs with AFD > 0.5
+sbatch 01_extractPos.slurm
+
+# subset clinal datasets to shortlisted SNPs
+sbatch 02_extractSNPs.slurm
+```
+Input files for `bgchm` were generated from the vcf files. The vcf was first converted to 012 format using `VCFtools` and then splited in P0, P1 and hybrids population. 
+
+```
+# Making 012 input
+sbatch 03_vcf012.slurm
+
+# creating P0 and P1 population file from triangulaR population map
+# these two files are under the popgen folder
+awk '$2 == "ARGE" {print $1}' ./EUpopmap.txt > EU_P0.txt
+awk '$2 == "CACH" {print $1}' ./EUpopmap.txt > EU_P1.txt
+
+awk '$2 == "GLAUC" {print $1}' ./NApopmap.txt > NA_P0.txt
+awk '$2 == "OCCI" {print $1}' ./NApopmap.txt > NA_P1.txt
+
+# creating input files for EU
+# this is the same for NA, just replace the file_prefizes, P0 and P1 files
+file_prefixes=("EU.ChrZ.Cline" "EU.auto.Cline" "EU.ChrW.Cline")
+    for prefix in "${file_prefixes[@]}"; do
+        # Create dynamic header from .012.pos file and store it in a variable
+        header=$(awk 'BEGIN {printf "Sample "} {printf "%s_%s ", $1, $2} END {print ""}' ${prefix}.012.pos)
+
+        # Create the main .txt file with the header
+        echo "$header" > ${prefix}.txt
+        awk 'NR==FNR {names[NR]=$1; next} { $1 = names[FNR]; print }' ${prefix}.012.indv ${prefix}.012 >> ${prefix}.txt
+
+        # Add header and filter out entries using P1.txt
+        echo "$header" > ${prefix}_P1.txt
+        grep -f EU_P1.txt ${prefix}.txt >> ${prefix}_P1.txt
+
+        # Add header and filter out entries using P0.txt
+        echo "$header" > ${prefix}_P0.txt
+        grep -f EU_P0.txt ${prefix}.txt >> ${prefix}_P0.txt
+
+        # Add header and filter out hybrids
+        grep -vFf EU_P1.txt -vFf EU_P0.txt ${prefix}.txt >> ${prefix}_hybrids.txt
+
+        # Print row and column counts for the main file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}.txt
+
+        # Print row and column counts for the P0 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P0.txt
+
+        # Print row and column counts for the P1 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P1.txt
+
+        # Print row and column counts for the hybrids file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_hybrids.txt
+    done
+```
+All loci was fitted using `bgchm` in a scalable, parallelizable manner as [suggested](https://github.com/zgompert/bgc-hm). This was ran separately for the chromosome classes.
+
+```
+# Creating a dataframe by merging all 3 files (P0, P1, hybrids) into one matrix
+sbatch 00_input.slurm
+# Estimation of cline SDs and hybrid indices
+sbatch 01_manyloci.slurm
+# Estimate clines for all of the loci in parallel
+sbatch 02_fitSnps.slurm
+# Combine estimates from each batch (for autosomes and chrZ)
+# the outputs were first moved to a new folder for each hybrid zone
+# chrW can be run without parallelisation for EU 
+sbatch 03_merge.slurm
+```
+
+## Genome-wide association studies
+GWAS was carried out using `GEMMA` to locate regions of interest that could be involved in phenotype. We used the standardised trait values from the phenotypic analyses. See ./Pheno/PhenoInput.R for input file generation. The Trait mapping dataset (5) was used for this section. This is all individuals except for the ones from the allopatric population. The scripts are filed under __popgen__ folder
+
+We first made the input using `PLINK` before running the lmm model in `GEMMA` with correction for relatedness. 
+
+```
+# Make input file using PLINK
+sbatch 07_GEMMAInput_EU.slurm
+sbatch 07_GEMMAInput_NA.slurm
+
+# Run GEMMA for lmm model
+sbatch 08_GEMMA_EU.slurm
+sbatch 08_GEMMA_NA.slurm
+
+```
+The results were plotted in R to quickly locate traits with regions of interest
+
+```
+# Plotting loop
+files <- list.files(path = "./", pattern = "*.gemma.assoc.txt.reduced.gz", full.names = TRUE)
+# Loop through each file
+for (file in files) {
+  # Read in the data
+  b <- read.table(file, h = TRUE)
+  
+  # Calculate Bonferroni and FDR adjusted p-values
+  b <- cbind(b,
+             p_wald_bonferroni = p.adjust(b$p_wald, "bonferroni"),
+             p_wald_fdr = p.adjust(b$p_wald, "fdr"))
+  # Remove non-finite or zero p-values
+  valid <- is.finite(b$p_wald) & b$p_wald > 0
+  b <- b[valid, ]
+  
+  # Skip file if no valid p-values
+  if (nrow(b) == 0) next
+  
+  significant_threshold <- -log10(0.05 / nrow(b))
+  plot_filename <- paste0("plot_", gsub(".*/|\\.gemma\\.assoc\\.txt\\.reduced\\.gz", "", file), ".png")
+    png(plot_filename, width = 10, height = 5, res = 300, units = "in")
+  # Create the basic plot
+  plot(1:nrow(b), -log10(b$p_wald),
+       type = "n", xaxt = "n", xlab = "Chromosomes", ylab = expression(log[10](P)),
+       ylim = c(0, max(-log10(b$p_wald), na.rm = TRUE)), main = paste(basename(file)))
+  # Add points with color based on significance
+  points(1:nrow(b), -log10(b$p_wald),
+         col = c("#00000044", "#FF880044")[1 + 1 * (-log10(b$p_wald) > significant_threshold)],
+         pch = 16)
+    axis(1, labels = FALSE, tck = 0)
+  # Close the plot device
+  dev.off()
+    cat("Completed plot for", file, "\n")
+}
+```
+
+## Clinal analyses for regions of interest
+Geographic clines based on hybrid indices derived from trait loci versus the genome background were used to investigate regions that gave a peak in GWAS analyses. These regions were identified from the GWAS analyses and listed in `TraitRegions.txt`. All scripts from this section are filed under __TraitRegions__ folder.
+
+These regions were extracted from the clinal datasets using `BCFtools` and their hybrid indices was calculated using `TriangulaR`. 
+
+```
+# Extract SNPs from region of interest
+# this was ran for separately for each hybrid zone
+sbatch 00_ExtractRegions.slurm
+
+# Calculating hybrid indices
+01_HI.R
+
+# Running HZAR for 6 models
+# 3 chain, 3 runs, chain length = 100000 
+./HZAR/02_runHZAR_EU.R
+./HZAR/02_runHZAR_NA.R
+```
+Clines from the trait regions will be compared to 1000 randomly selected background loci following [Schield et al. 2024](https://github.com/drewschield/hirundo_speciation_genomics/) pipeline. 
+
+```
+ml load BEDTools/2.31.0-GCC-12.3.0
+ml load BCFtools/1.18-GCC-12.3.0 #a different version
+
+bcftools query -f '%CHROM\t%POS\n' ./5_bcftools/datasets/Chapter1.NA_Cline.auto.new.bSNPs.2.vcf.gz | \
+grep -v '^NW_' |awk '{OFS="\t"}{print $1,$2-1,$2}' | bedtools intersect -v -wb -a - -b candidate.bed | \
+shuf -n 1000 | awk '{OFS="\t"}{print $1,$3}' > background.NA.snps.txt
+
+bcftools query -f '%CHROM\t%POS\n' ./5_bcftools/datasets/Chapter1.EU_Cline.auto.new.bSNPs.2.vcf.gz | \
+grep -v '^NW_' | awk '{OFS="\t"}{print $1,$2-1,$2}' | bedtools intersect -v -wb -a - -b candidate.bed | \
+shuf -n 1000 | awk '{OFS="\t"}{print $1,$3}' > background.EU.snps.txt
+
+bcftools query -f '%CHROM\t%POS\n' ./5_bcftools/datasets/Chapter1.NA_Cline.auto.new.bSNPs.2.vcf.gz  > all.NA.snps.txt
+bcftools query -f '%CHROM\t%POS\n' ./5_bcftools/datasets/Chapter1.EU_Cline.auto.new.bSNPs.2.vcf.gz  > all.EU.snps.txt
+
+pop="NA"
+outfile=background.$pop.snps.region.txt
+rm -f $outfile
+while read region; do
+	chrom=`echo "$region" | cut -f 1`;
+	snp=`echo "$region" | cut -f 2`;
+	tmp=`grep $chrom all.$pop.snps.txt | grep -w -B49 -A50 $snp`
+	start=`echo $tmp | cut -d' ' -f2`
+	end=`echo $tmp | rev | cut -d' ' -f 1 | rev`
+	echo -e "$chrom\t$start\t$end" >> $outfile
+done < background.$pop.snps.txt
+
+pop="EU"
+outfile=background.$pop.snps.region.txt
+rm -f $outfile
+while read region; do
+	chrom=`echo "$region" | cut -f 1`;
+	snp=`echo "$region" | cut -f 2`;
+	tmp=`grep $chrom all.$pop.snps.txt | grep -w -B49 -A50 $snp`
+	start=`echo $tmp | cut -d' ' -f2`
+	end=`echo $tmp | rev | cut -d' ' -f 1 | rev`
+	echo -e "$chrom\t$start\t$end" >> $outfile
+done < background.$pop.snps.txt
+
+# Make vcf files for each background region
+sbatch 03_ExtractRegions_bg.slurm
+
+# Get HI for each background region
+04_HI.R
+
+# Run HZAR
+sbatch ./HZAR/01_runHZAR.bg.EU.slurm
+sbatch ./HZAR/01_runHZAR.bg.NA.slurm
+```
+
+
+
+
 
