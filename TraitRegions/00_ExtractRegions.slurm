@@ -15,8 +15,8 @@ cd ./8_Cline/TraitRegions
 ml load BCFtools/1.19-GCC-13.2.0
 
 
-VCF_FILE="/scicore/home/marque0000/GROUP/wu0006/5.2_bcftools/20260106_Chapter1/dataset/Chapter1.NA_Cline.auto.new.bSNPs.2.vcf.gz"
-#VCF_FILE="/scicore/home/marque0000/GROUP/wu0006/5.2_bcftools/20260106_Chapter1/dataset/Chapter1.EU_Cline.auto.new.bSNPs.2.vcf.gz"
+VCF_FILE="../../5_bcftools/datasets/Chapter1.NA_Cline.auto.new.bSNPs.2.vcf.gz"
+#VCF_FILE="../../5_bcftools/datasets/Chapter1.EU_Cline.auto.new.bSNPs.2.vcf.gz"
 REGION_FILE="TraitRegions.txt"
 
 # Get region info for this array task
