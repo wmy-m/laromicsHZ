@@ -72,5 +72,5 @@ hi_merged2 <- merge(locality, hi_merged, by = "id", all.y = TRUE)
 hi_merged3 <- merge(dist, hi_merged2, by = "locality", all.y = TRUE)
 #hi_merged3$raw <- NULL
 
-write.csv(hi_merged3, file = "NA.HI.AFD0.5.csv", row.names = FALSE)
+write.csv(hi_merged3, file = "EU.HI.csv", row.names = FALSE)
 
