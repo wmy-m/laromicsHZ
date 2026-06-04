@@ -12,4 +12,4 @@ ml load R/4.4.1-gfbf-2023b
 
 cd ./8_Cline/TraitRegions/BGChm/manyloci
 
-Rscript 04_BGChm_merge.R
+Rscript 03_BGChm_merge.R
