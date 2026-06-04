@@ -536,8 +536,105 @@ sbatch 03_ExtractRegions_bg.slurm
 sbatch ./HZAR/01_runHZAR.bg.EU.slurm
 sbatch ./HZAR/01_runHZAR.bg.NA.slurm
 ```
+Genomic clines were also carried out for all SNPs in the genomic trait region. The background loci used were the 1000 SNPs used to create the windows for HZAR.
 
+```
+# Create a vcf file with the 1000 background loci
+bcftools view -R ./background.EU.snps.txt ./5_bcftools/datasets/Chapter1.EU_Cline.auto.new.bSNPs.2.vcf.gz \
+-o EU.backgroundloci.vcf
 
+bcftools view -R ./background.NA.snps.txt ./5_bcftools/datasets/Chapter1.NA_Cline.auto.new.bSNPs.2.vcf.gz \
+-o NA.backgroundloci.vcf
 
+# Input files was created using VCFtools from the VCF files created from 00_ExtractRegions.slurm and the backgroundloci.vcfs
+# First convert to 012 format
+for vcf in *.vcf.gz; do
+    base=$(basename "$vcf" .vcf.gz)
+    vcftools --gzvcf "$vcf" \
+            --012 \
+            --out "$base"
+done  
+# Make bgchm format
+# Popmap is the same one used in the prior bgchm analyses above
+file_prefixes=("EU.auto.Cline.EUorb1" "EU.auto.Cline.EUorb2" "EU.auto.Cline.EUorb3" "EU.auto.Cline.NAorb1" "EU.auto.Cline.NAorb2" "EU.auto.Cline.NAorb3" "EU.auto.Cline.NAtip1" "EU.backgroundloci.vcf")
+    for prefix in "${file_prefixes[@]}"; do
+        # Create dynamic header from .012.pos file and store it in a variable
+        header=$(awk 'BEGIN {printf "Sample "} {printf "%s_%s ", $1, $2} END {print ""}' ${prefix}.012.pos)
 
+        # Create the main .txt file with the header
+        echo "$header" > ${prefix}.txt
+        awk 'NR==FNR {names[NR]=$1; next} { $1 = names[FNR]; print }' ${prefix}.012.indv ${prefix}.012 >> ${prefix}.txt
+
+        # Add header and filter out entries using P1.txt
+        echo "$header" > ${prefix}_P1.txt
+        grep -f ../EUpopmap.P1.txt ${prefix}.txt >> ${prefix}_P1.txt
+
+        # Add header and filter out entries using P0.txt
+        echo "$header" > ${prefix}_P0.txt
+        grep -f ../EUpopmap.P0.txt ${prefix}.txt >> ${prefix}_P0.txt
+
+        # Add header and filter out hybrids
+        grep -vFf ../EUpopmap.P1.txt -vFf ../EUpopmap.P0.txt ${prefix}.txt >> ${prefix}_hybrids.txt
+
+        # Print row and column counts for the main file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}.txt
+
+        # Print row and column counts for the P0 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P0.txt
+
+        # Print row and column counts for the P1 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P1.txt
+
+        # Print row and column counts for the hybrids file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_hybrids.txt
+    done
+
+file_prefixes=("NA.auto.Cline.EUorb1" "NA.auto.Cline.EUorb2" "NA.auto.Cline.EUorb3" "NA.auto.Cline.NAorb1" "NA.auto.Cline.NAorb2" "NA.auto.Cline.NAorb3" "NA.auto.Cline.NAtip1" "NA.backgroundloci.vcf")
+
+    for prefix in "${file_prefixes[@]}"; do
+        # Create dynamic header from .012.pos file and store it in a variable
+        header=$(awk 'BEGIN {printf "Sample "} {printf "%s_%s ", $1, $2} END {print ""}' ${prefix}.012.pos)
+
+        # Create the main .txt file with the header
+        echo "$header" > ${prefix}.txt
+        awk 'NR==FNR {names[NR]=$1; next} { $1 = names[FNR]; print }' ${prefix}.012.indv ${prefix}.012 >> ${prefix}.txt
+
+        # Add header and filter out entries using P1.txt
+        echo "$header" > ${prefix}_P1.txt
+        grep -f ../NApopmap.P1.txt ${prefix}.txt >> ${prefix}_P1.txt
+
+        # Add header and filter out entries using P0.txt
+        echo "$header" > ${prefix}_P0.txt
+        grep -f ../NApopmap.P0.txt ${prefix}.txt >> ${prefix}_P0.txt
+
+        # Add header and filter out hybrids
+        grep -vFf ../NApopmap.P1.txt -vFf ../NApopmap.P0.txt ${prefix}.txt >> ${prefix}_hybrids.txt
+
+        # Print row and column counts for the main file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}.txt
+
+        # Print row and column counts for the P0 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P0.txt
+
+        # Print row and column counts for the P1 file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_P1.txt
+
+        # Print row and column counts for the hybrids file
+        awk 'END {print "Rows: " NR; print "Columns: " NF}' ${prefix}_hybrids.txt
+    done
+
+# All output files were separately concatenated for P0, P1 and hybrids for all traits to get the finalised input files.
+```
+All loci was fitted using `bgchm` in a scalable, parallelizable manner as [suggested](https://github.com/zgompert/bgc-hm). 
+
+```
+# Estimation of cline SDs and hybrid indices
+sbatch 01_BGChm_step1.slurm
+# Estimate clines for all of the loci in parallel
+sbatch 02_BGChm_fitSnps.slurm
+# Combine estimates from each batch 
+sbatch 03_BGChm_merge.slurm
+# Plot genomic clines
+04_plot.R
+```
 
